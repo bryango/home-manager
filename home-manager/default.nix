@@ -29,19 +29,27 @@ let
 
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
-  name = "home-manager";
+  pname = "home-manager";
+  name = finalAttrs.name; # without `version`
   src = ../.;
   preferLocalBuild = true;
   nativeBuildInputs = [
     gettext
     installShellFiles
   ];
-  meta = with lib; {
+  meta = {
     mainProgram = "home-manager";
-    description = "A user environment configurator";
-    maintainers = [ maintainers.rycee ];
-    platforms = platforms.unix;
-    license = licenses.mit;
+    description = "Nix-based user environment configurator";
+    maintainers = [ lib.maintainers.rycee ];
+    platforms = lib.platforms.unix;
+    license = lib.licenses.mit;
+    homepage = "https://nix-community.github.io/home-manager/";
+    longDescription = ''
+      The Home-Manager project provides a basic system for managing a user
+      environment using the Nix package manager together with the Nix libraries
+      found in Nixpkgs. It allows declarative configuration of user specific
+      (non global) packages and dotfiles.
+    '';
   };
   dontConfigure = true;
   dontBuild = true;
@@ -51,6 +59,21 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     install -v -D -m755 home-manager/home-manager $out/bin/home-manager
     install -v -D -m755 lib/bash/home-manager.sh $out/share/bash/home-manager.sh
 
+    installShellCompletion --bash --name home-manager.bash home-manager/completion.bash
+    installShellCompletion --zsh --name _home-manager home-manager/completion.zsh
+    installShellCompletion --fish --name home-manager.fish home-manager/completion.fish
+
+    for pofile in home-manager/po/*.po; do
+      lang="''${pofile##*/}"
+      lang="''${lang%%.*}"
+      mkdir -p "$out/share/locale/$lang/LC_MESSAGES"
+      msgfmt -o "$out/share/locale/$lang/LC_MESSAGES/home-manager.mo" "$pofile"
+    done
+
+    runHook postInstall
+  '';
+
+  postFixup = ''
     substituteInPlace $out/bin/home-manager \
       --subst-var-by bash "${bash}" \
       --subst-var-by DEP_PATH "${
@@ -76,18 +99,5 @@ stdenvNoCC.mkDerivation (finalAttrs: {
           pathStr
       }' \
       --subst-var-by OUT "$out"
-
-    installShellCompletion --bash --name home-manager.bash home-manager/completion.bash
-    installShellCompletion --zsh --name _home-manager home-manager/completion.zsh
-    installShellCompletion --fish --name home-manager.fish home-manager/completion.fish
-
-    for pofile in home-manager/po/*.po; do
-      lang="''${pofile##*/}"
-      lang="''${lang%%.*}"
-      mkdir -p "$out/share/locale/$lang/LC_MESSAGES"
-      msgfmt -o "$out/share/locale/$lang/LC_MESSAGES/home-manager.mo" "$pofile"
-    done
-
-    runHook postInstall
   '';
 })
